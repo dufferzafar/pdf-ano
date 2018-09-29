@@ -214,16 +214,13 @@ def prettyprint(annots, outlines, mediaboxes):
     )
 
     def fmtpos(annot):
-        apos = annot.getstartpos()
-        if apos:
-            o = nearest_outline(outlines, annot.pageno,
-                                mediaboxes[annot.pageno], apos)
-        else:
-            o = None
-        if o:
-            return "Page %d (%s):" % (annot.pageno + 1, o.title)
-        else:
-            return "Page %d:" % (annot.pageno + 1)
+        # apos = annot.getstartpos()
+        # if apos:
+        #     o = nearest_outline(outlines, annot.pageno,
+        #                         mediaboxes[annot.pageno], apos)
+        #     return "Page %d (%s):" % (annot.pageno + 1, o.title)
+        # else:
+        return "Pg %d:" % (annot.pageno + 1)
 
     def fmttext(annot):
         if annot.boxes:
@@ -253,11 +250,6 @@ def prettyprint(annots, outlines, mediaboxes):
         if a.tagname == 'highlight' and a.contents is None
     ]
 
-    if highlights:
-        print("## Highlights\n")
-        for a in highlights:
-            printitem(fmtpos(a), fmttext(a))
-
     if comments:
         if highlights:
             print()  # blank
@@ -271,9 +263,15 @@ def prettyprint(annots, outlines, mediaboxes):
                 firstword = contents.split()[0]
                 if firstword != 'I' and not firstword.startswith("I'"):
                     contents = contents[0].lower() + contents[1:]
-                printitem(fmtpos(a), text + ",", contents)
+                # printitem("> " + text, "\n\n", contents)
+                print("> " + text, "\n\n", contents, "\n")
             else:
-                printitem(fmtpos(a), a.contents)
+                printitem(a.contents)
+
+    if highlights:
+        print("## Highlights\n")
+        for a in highlights:
+            printitem(fmttext(a))
 
     if nits:
         if highlights or comments:
@@ -282,9 +280,9 @@ def prettyprint(annots, outlines, mediaboxes):
         for a in nits:
             text = fmttext(a)
             if a.contents:
-                printitem(fmtpos(a), "%s -> %s" % (text, a.contents))
+                printitem("%s -> %s" % (text, a.contents))
             else:
-                printitem(fmtpos(a), "%s" % text)
+                printitem("%s" % text)
 
 
 def resolve_dest(doc, dest):
