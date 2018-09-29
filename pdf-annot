@@ -36,8 +36,11 @@ SUBSTITUTIONS = {
     u'’': "'",
 }
 
-ANNOT_SUBTYPES = set(
-    ['Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'])
+ANNOT_SUBTYPES = set([
+    'Text', 'Highlight',
+    'Squiggly', 'StrikeOut', 'Underline',
+    'Ink',
+])
 
 DEBUG_BOXHIT = False
 
@@ -165,6 +168,7 @@ def getannots(pdfannots, pageno):
     annots = []
     for pa in pdfannots:
         subtype = pa.get('Subtype')
+
         if subtype is not None and subtype.name not in ANNOT_SUBTYPES:
             continue
 
@@ -172,8 +176,12 @@ def getannots(pdfannots, pageno):
         if contents is not None:
             contents = str(contents, 'iso8859-15')  # 'utf-8'
             contents = contents.replace('\r\n', '\n').replace('\r', '\n')
-        a = Annotation(pageno, subtype.name.lower(), pa.get(
-            'QuadPoints'), pa.get('Rect'), contents)
+
+        a = Annotation(pageno,
+                       subtype.name.lower(),
+                       pa.get('QuadPoints'),
+                       pa.get('Rect'),
+                       contents)
         annots.append(a)
 
     return annots
@@ -246,7 +254,7 @@ def prettyprint(annots, outlines, mediaboxes):
         msg = ' '.join(args)
         print(tw.fill(msg) + "\n")
 
-    nits, comments, highlights = get_annots_by_type(annots)
+    nits, comments, highlights, _ = get_annots_by_type(annots)
 
     if comments:
         if highlights:
@@ -300,7 +308,12 @@ def get_annots_by_type(annots):
         if a.tagname == 'highlight' and a.contents is None
     ]
 
-    return (nits, comments, highlights)
+    inks = [
+        a for a in annots
+        if a.tagname == 'ink' and a.contents is None
+    ]
+
+    return (nits, comments, highlights, inks)
 
 
 def resolve_dest(doc, dest):
@@ -380,13 +393,14 @@ def get_all_annots(fh):
     sys.stderr.write("\n")
 
     outlines = []
-    try:
-        outlines = get_outlines(doc, pagesdict)
-    except PDFNoOutlines:
-        sys.stderr.write("Document doesn't include outlines (\"bookmarks\")\n")
-    except:  # noqa
-        e = sys.exc_info()[0]
-        sys.stderr.write("Warning: failed to retrieve outlines: %s\n" % e)
+
+    # try:
+    #     outlines = get_outlines(doc, pagesdict)
+    # except PDFNoOutlines:
+    #     sys.stderr.write("Document doesn't include outlines\n")
+    # except:  # noqa
+    #     e = sys.exc_info()[0]
+    #     sys.stderr.write("Warning: failed to retrieve outlines: %s\n" % e)
 
     device.close()
 
@@ -410,16 +424,19 @@ def main():
 
             if args["--count"]:
 
-                n, c, h = get_annots_by_type(annots[0])
+                n, c, h, i = get_annots_by_type(annots[0])
 
                 print(
                     "Annotations: ", len(annots[0]),
                     "| Nits: ", len(n),
                     "| Comments: ", len(c),
                     "| Highlights: ", len(h),
+                    "| Inks: ", len(i),
                 )
             else:
                 prettyprint(*annots)
+
+        print("\n")
 
 
 if __name__ == "__main__":
