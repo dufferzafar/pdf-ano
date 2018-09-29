@@ -1,10 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function
+"""
+List all annotations in a PDF file.
+
+Usage: pdf-annot [options] [<file>...]
+
+Options:
+    --count     Only display the number of annotations
+"""
+
 import sys
 import io
 import textwrap
+
+from docopt import docopt
 
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
@@ -205,6 +215,7 @@ def nearest_outline(outlines, pageno, mediabox, pos):
     return prev
 
 
+# TODO: Pretty print a single annotation instead of a bunch
 def prettyprint(annots, outlines, mediaboxes):
 
     tw = textwrap.TextWrapper(
@@ -235,20 +246,7 @@ def prettyprint(annots, outlines, mediaboxes):
         msg = ' '.join(args)
         print(tw.fill(msg) + "\n")
 
-    nits = [
-        a for a in annots
-        if a.tagname in ['squiggly', 'strikeout', 'underline']
-    ]
-
-    comments = [
-        a for a in annots
-        if a.tagname in ['highlight', 'text'] and a.contents
-    ]
-
-    highlights = [
-        a for a in annots
-        if a.tagname == 'highlight' and a.contents is None
-    ]
+    nits, comments, highlights = get_annots_by_type(annots)
 
     if comments:
         if highlights:
@@ -283,6 +281,26 @@ def prettyprint(annots, outlines, mediaboxes):
                 printitem("%s -> %s" % (text, a.contents))
             else:
                 printitem("%s" % text)
+
+
+def get_annots_by_type(annots):
+
+    nits = [
+        a for a in annots
+        if a.tagname in ['squiggly', 'strikeout', 'underline']
+    ]
+
+    comments = [
+        a for a in annots
+        if a.tagname in ['highlight', 'text'] and a.contents
+    ]
+
+    highlights = [
+        a for a in annots
+        if a.tagname == 'highlight' and a.contents is None
+    ]
+
+    return (nits, comments, highlights)
 
 
 def resolve_dest(doc, dest):
@@ -322,7 +340,7 @@ def get_outlines(doc, pagesdict):
     return result
 
 
-def printannots(fh):
+def get_all_annots(fh):
     rsrcmgr = PDFResourceManager()
     laparams = LAParams()
     device = RectExtractor(rsrcmgr, laparams=laparams)
@@ -334,7 +352,9 @@ def printannots(fh):
     mediaboxes = {}
     allannots = []
 
+    # TODO: Take input page ranges
     for (pageno, page) in enumerate(PDFPage.create_pages(doc)):
+
         pagesdict[page.pageid] = pageno
         mediaboxes[pageno] = page.mediabox
 
@@ -342,8 +362,8 @@ def printannots(fh):
             continue
 
         # emit progress indicator
-        sys.stderr.write((" " if pageno > 0 else "") + "%d" % (pageno + 1))
-        sys.stderr.flush()
+        # sys.stderr.write((" " if pageno > 0 else "") + "%d" % (pageno + 1))
+        # sys.stderr.flush()
 
         pdfannots = []
         for a in pdftypes.resolve1(page.annots):
@@ -370,21 +390,36 @@ def printannots(fh):
 
     device.close()
 
-    prettyprint(allannots, outlines, mediaboxes)
+    return (allannots, outlines, mediaboxes)
 
 
 def main():
-    if len(sys.argv) != 2:
-        sys.stderr.write("Usage: %s FILE.PDF\n" % sys.argv[0])
-        sys.exit(1)
 
-    try:
-        fh = open(sys.argv[1], 'rb')
-    except OSError as e:
-        sys.stderr.write("Error: %s\n" % e)
-        sys.exit(1)
-    else:
-        printannots(fh)
+    args = docopt(__doc__)
+
+    for fname in args["<file>"]:
+
+        print("Reading: ", fname)
+
+        try:
+            with open(fname, 'rb') as file_handle:
+                annots = get_all_annots(file_handle)
+        except OSError as e:
+            sys.stderr.write("Error: %s\n" % e)
+        else:
+
+            if args["--count"]:
+
+                n, c, h = get_annots_by_type(annots[0])
+
+                print(
+                    "Annotations: ", len(annots[0]),
+                    "| Nits: ", len(n),
+                    "| Comments: ", len(c),
+                    "| Highlights: ", len(h),
+                )
+            else:
+                prettyprint(*annots)
 
 
 if __name__ == "__main__":
